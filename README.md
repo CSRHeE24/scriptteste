@@ -12,7 +12,7 @@ local Settings = {
     MenuKey = Enum.KeyCode.M,
     MenuOpen = false,
     Options = {
-        SpeedHack = {Enabled = false, Speed = 50},
+        SpeedHack = {Enabled = false, Speed = 200},
         JumpPower = {Enabled = false, Power = 100},
         NoClip = {Enabled = false},
         Fly = {Enabled = false, Speed = 50},
