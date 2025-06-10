@@ -1,175 +1,244 @@
 -- Configurações do ESP
-local settings = {
-    enabled = true,
-    teamCheck = true,       -- Mostrar apenas inimigos
-    boxEsp = true,          -- Mostrar caixas ao redor dos jogadores
-    tracerEsp = true,       -- Mostrar linhas traçadoras
-    healthBar = true,       -- Mostrar barra de vida
-    distance = true,        -- Mostrar distância
-    maxDistance = 1000,     -- Distância máxima para renderizar
-    boxColor = {255, 0, 0}, -- Cor da caixa (RGB)
-    tracerColor = {255, 255, 255} -- Cor do tracer (RGB)
+local ESP = {
+    Enabled = true,
+    TeamCheck = true,        -- Mostrar apenas inimigos
+    Boxes = true,           -- Mostrar caixas
+    Tracers = true,         -- Mostrar linhas traçadoras
+    Names = true,           -- Mostrar nomes
+    HealthBars = true,      -- Mostrar barras de vida
+    Distance = true,        -- Mostrar distância
+    MaxDistance = 1000,     -- Distância máxima
+    BoxColor = Color3.fromRGB(255, 0, 0),  -- Cor da caixa
+    TracerColor = Color3.fromRGB(255, 255, 255),  -- Cor do tracer
+    TextColor = Color3.fromRGB(255, 255, 255),    -- Cor do texto
+    TextSize = 14           -- Tamanho do texto
 }
 
--- Função principal de desenho
-function drawESP()
-    if not settings.enabled then return end
+-- Serviços necessários
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Função para verificar se um jogador é inimigo
+local function IsEnemy(player)
+    if not ESP.TeamCheck then return true end
+    if not LocalPlayer.Team then return true end  -- Se não houver times
+    return player.Team ~= LocalPlayer.Team
+end
+
+-- Função para calcular a distância entre dois pontos
+local function GetDistance(from, to)
+    return (from - to).Magnitude
+end
+
+-- Função para criar um ESP para um jogador
+local function CreateESP(player)
+    if player == LocalPlayer then return end
     
-    -- Obter jogador local
-    local localPlayer = getLocalPlayer()
-    if not localPlayer then return end
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    local humanoid = character:WaitForChild("Humanoid")
     
-    -- Obter posição do jogador local
-    local localX, localY, localZ = getPlayerPosition(localPlayer)
+    -- Criar componentes do ESP
+    local espFolder = Instance.new("Folder")
+    espFolder.Name = player.Name .. "_ESP"
+    espFolder.Parent = player
     
-    -- Obter todos os jogadores
-    local players = getPlayers()
+    -- Caixa
+    local box = Instance.new("BoxHandleAdornment")
+    box.Name = "Box"
+    box.Adornee = humanoidRootPart
+    box.AlwaysOnTop = true
+    box.ZIndex = 5
+    box.Size = Vector3.new(3, 5, 1)
+    box.Transparency = 0.7
+    box.Color3 = ESP.BoxColor
+    box.Visible = ESP.Boxes and ESP.Enabled and IsEnemy(player)
+    box.Parent = espFolder
     
-    for _, player in ipairs(players) do
-        -- Verificar se não é o jogador local
-        if player ~= localPlayer then
-            -- Verificar se é inimigo (se teamCheck estiver ativado)
-            if not settings.teamCheck or not isTeammate(localPlayer, player) then
-                -- Obter posição do jogador
-                local x, y, z = getPlayerPosition(player)
-                
-                -- Verificar distância
-                local dist = getDistance(localX, localY, localZ, x, y, z)
-                if dist <= settings.maxDistance then
-                    -- Converter coordenadas 3D para 2D na tela
-                    local screenX, screenY = worldToScreen(x, y, z)
-                    
-                    if screenX and screenY then
-                        -- Obter informações do jogador
-                        local health = getPlayerHealth(player)
-                        local maxHealth = getPlayerMaxHealth(player)
-                        local name = getPlayerName(player)
-                        
-                        -- Desenhar caixa ESP
-                        if settings.boxEsp then
-                            local boxWidth = 50 * (1 / dist)
-                            local boxHeight = 100 * (1 / dist)
-                            
-                            drawBox(screenX - boxWidth/2, screenY - boxHeight, boxWidth, boxHeight, 
-                                   settings.boxColor[1], settings.boxColor[2], settings.boxColor[3], 255)
-                        end
-                        
-                        -- Desenhar tracer
-                        if settings.tracerEsp then
-                            local screenWidth, screenHeight = getScreenResolution()
-                            drawLine(screenWidth/2, screenHeight, screenX, screenY, 
-                                    settings.tracerColor[1], settings.tracerColor[2], settings.tracerColor[3], 255)
-                        end
-                        
-                        -- Desenhar barra de vida
-                        if settings.healthBar then
-                            local healthPercentage = health / maxHealth
-                            local barWidth = 40 * (1 / dist)
-                            local barHeight = 3 * (1 / dist)
-                            local barX = screenX - barWidth/2
-                            local barY = screenY - 105 * (1 / dist)
-                            
-                            -- Fundo da barra
-                            drawFilledRectangle(barX, barY, barWidth, barHeight, 255, 0, 0, 150)
-                            
-                            -- Vida atual
-                            local healthWidth = barWidth * healthPercentage
-                            local healthColor = interpolateColor({255, 0, 0}, {0, 255, 0}, healthPercentage)
-                            drawFilledRectangle(barX, barY, healthWidth, barHeight, healthColor[1], healthColor[2], healthColor[3], 200)
-                        end
-                        
-                        -- Desenhar distância
-                        if settings.distance then
-                            local textY = screenY - 120 * (1 / dist)
-                            drawText(string.format("%.1fm", dist), screenX, textY, 255, 255, 255, 255, true, 0.5 * (1 / dist))
-                        end
-                    end
+    -- Tracer
+    local tracer = Instance.new("LineHandleAdornment")
+    tracer.Name = "Tracer"
+    tracer.Adornee = humanoidRootPart
+    tracer.AlwaysOnTop = true
+    tracer.ZIndex = 3
+    tracer.Transparency = 0.7
+    tracer.Color3 = ESP.TracerColor
+    tracer.Visible = ESP.Tracers and ESP.Enabled and IsEnemy(player)
+    tracer.Parent = espFolder
+    
+    -- Nome
+    local nameLabel = Instance.new("BillboardGui")
+    nameLabel.Name = "Name"
+    nameLabel.Adornee = humanoidRootPart
+    nameLabel.AlwaysOnTop = true
+    nameLabel.Size = UDim2.new(0, 200, 0, 50)
+    nameLabel.StudsOffset = Vector3.new(0, 3.5, 0)
+    
+    local nameText = Instance.new("TextLabel")
+    nameText.Size = UDim2.new(1, 0, 0.5, 0)
+    nameText.BackgroundTransparency = 1
+    nameText.Text = player.Name
+    nameText.TextColor3 = ESP.TextColor
+    nameText.TextSize = ESP.TextSize
+    nameText.Font = Enum.Font.SourceSansBold
+    nameText.Parent = nameLabel
+    
+    nameLabel.Enabled = ESP.Names and ESP.Enabled and IsEnemy(player)
+    nameLabel.Parent = espFolder
+    
+    -- Barra de vida
+    local healthBar = Instance.new("BillboardGui")
+    healthBar.Name = "HealthBar"
+    healthBar.Adornee = humanoidRootPart
+    healthBar.AlwaysOnTop = true
+    healthBar.Size = UDim2.new(2, 0, 0.2, 0)
+    healthBar.StudsOffset = Vector3.new(0, 2.8, 0)
+    
+    local healthBackground = Instance.new("Frame")
+    healthBackground.Size = UDim2.new(1, 0, 1, 0)
+    healthBackground.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    healthBackground.BorderSizePixel = 0
+    healthBackground.Parent = healthBar
+    
+    local healthFill = Instance.new("Frame")
+    healthFill.Size = UDim2.new(1, 0, 1, 0)
+    healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    healthFill.BorderSizePixel = 0
+    healthFill.Parent = healthBackground
+    
+    healthBar.Enabled = ESP.HealthBars and ESP.Enabled and IsEnemy(player)
+    healthBar.Parent = espFolder
+    
+    -- Distância
+    local distanceLabel = Instance.new("BillboardGui")
+    distanceLabel.Name = "Distance"
+    distanceLabel.Adornee = humanoidRootPart
+    distanceLabel.AlwaysOnTop = true
+    distanceLabel.Size = UDim2.new(0, 200, 0, 50)
+    distanceLabel.StudsOffset = Vector3.new(0, 2, 0)
+    
+    local distanceText = Instance.new("TextLabel")
+    distanceText.Size = UDim2.new(1, 0, 0.5, 0)
+    distanceText.BackgroundTransparency = 1
+    distanceText.TextColor3 = ESP.TextColor
+    distanceText.TextSize = ESP.TextSize - 2
+    distanceText.Font = Enum.Font.SourceSans
+    distanceText.Parent = distanceLabel
+    
+    distanceLabel.Enabled = ESP.Distance and ESP.Enabled and IsEnemy(player)
+    distanceLabel.Parent = espFolder
+    
+    -- Atualizar ESP em cada frame
+    local connection
+    connection = RunService.RenderStepped:Connect(function()
+        if not character or not humanoidRootPart or not humanoid or not humanoid:IsDescendantOf(workspace) then
+            connection:Disconnect()
+            espFolder:Destroy()
+            return
+        end
+        
+        local distance = GetDistance(LocalPlayer.Character.HumanoidRootPart.Position, humanoidRootPart.Position)
+        local isEnemy = IsEnemy(player)
+        local inRange = distance <= ESP.MaxDistance
+        
+        -- Atualizar visibilidade
+        box.Visible = ESP.Boxes and ESP.Enabled and isEnemy and inRange
+        tracer.Visible = ESP.Tracers and ESP.Enabled and isEnemy and inRange
+        nameLabel.Enabled = ESP.Names and ESP.Enabled and isEnemy and inRange
+        healthBar.Enabled = ESP.HealthBars and ESP.Enabled and isEnemy and inRange
+        distanceLabel.Enabled = ESP.Distance and ESP.Enabled and isEnemy and inRange
+        
+        -- Atualizar posição do tracer (do jogador para o alvo)
+        if tracer.Visible then
+            tracer.From = Camera.CFrame.Position
+            tracer.To = humanoidRootPart.Position
+        end
+        
+        -- Atualizar barra de vida
+        if healthBar.Enabled then
+            local healthPercent = humanoid.Health / humanoid.MaxHealth
+            healthFill.Size = UDim2.new(healthPercent, 0, 1, 0)
+            
+            -- Mudar cor baseada na vida
+            if healthPercent > 0.5 then
+                healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+            elseif healthPercent > 0.25 then
+                healthFill.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+            else
+                healthFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+            end
+        end
+        
+        -- Atualizar texto de distância
+        if distanceLabel.Enabled then
+            distanceText.Text = string.format("%.1fm", distance)
+        end
+    end)
+end
+
+-- Criar ESP para todos os jogadores existentes
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        coroutine.wrap(CreateESP)(player)
+    end
+end
+
+-- Criar ESP para novos jogadores
+Players.PlayerAdded:Connect(function(player)
+    if player ~= LocalPlayer then
+        coroutine.wrap(CreateESP)(player)
+    end
+end)
+
+-- Remover ESP quando um jogador sair
+Players.PlayerRemoving:Connect(function(player)
+    local espFolder = player:FindFirstChild(player.Name .. "_ESP")
+    if espFolder then
+        espFolder:Destroy()
+    end
+end)
+
+-- Atualizar ESP quando o personagem for recarregado
+LocalPlayer.CharacterAdded:Connect(function(character)
+    -- Recriar ESP para todos os jogadores
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local espFolder = player:FindFirstChild(player.Name .. "_ESP")
+            if espFolder then
+                espFolder:Destroy()
+            end
+            coroutine.wrap(CreateESP)(player)
+        end
+    end
+end)
+
+-- Comando para ativar/desativar o ESP
+local function ToggleESP()
+    ESP.Enabled = not ESP.Enabled
+    print("ESP " .. (ESP.Enabled and "ativado" or "desativado"))
+    
+    -- Atualizar todos os ESPs
+    for _, player in ipairs(Players:GetPlayers()) do
+        local espFolder = player:FindFirstChild(player.Name .. "_ESP")
+        if espFolder then
+            for _, item in ipairs(espFolder:GetChildren()) do
+                if item:IsA("BoxHandleAdornment") or item:IsA("LineHandleAdornment") then
+                    item.Visible = ESP.Enabled and IsEnemy(player)
+                elseif item:IsA("BillboardGui") then
+                    item.Enabled = ESP.Enabled and IsEnemy(player)
                 end
             end
         end
     end
 end
 
--- Funções auxiliares (precisa ser implementadas de acordo com o jogo/engine)
-function getLocalPlayer()
-    -- Implementação específica do jogo
-    -- Retorna a referência do jogador local
-end
-
-function getPlayers()
-    -- Retorna uma tabela com todos os jogadores
-end
-
-function getPlayerPosition(player)
-    -- Retorna x, y, z do jogador
-end
-
-function isTeammate(player1, player2)
-    -- Retorna true se os jogadores são do mesmo time
-end
-
-function getPlayerHealth(player)
-    -- Retorna a vida atual do jogador
-end
-
-function getPlayerMaxHealth(player)
-    -- Retorna a vida máxima do jogador
-end
-
-function getPlayerName(player)
-    -- Retorna o nome do jogador
-end
-
-function getDistance(x1, y1, z1, x2, y2, z2)
-    -- Calcula distância entre dois pontos 3D
-    local dx = x2 - x1
-    local dy = y2 - y1
-    local dz = z2 - z1
-    return math.sqrt(dx*dx + dy*dy + dz*dz)
-end
-
-function worldToScreen(x, y, z)
-    -- Converte coordenadas 3D do mundo para 2D na tela
-    -- Retorna screenX, screenY ou nil se não estiver visível
-end
-
-function interpolateColor(color1, color2, factor)
-    -- Interpola entre duas cores RGB
-    local r = color1[1] + (color2[1] - color1[1]) * factor
-    local g = color1[2] + (color2[2] - color1[2]) * factor
-    local b = color1[3] + (color2[3] - color1[3]) * factor
-    return {r, g, b}
-end
-
--- Funções de desenho (dependem da API gráfica disponível)
-function drawBox(x, y, width, height, r, g, b, a)
-    -- Desenha um retângulo vazio
-end
-
-function drawFilledRectangle(x, y, width, height, r, g, b, a)
-    -- Desenha um retângulo preenchido
-end
-
-function drawLine(x1, y1, x2, y2, r, g, b, a)
-    -- Desenha uma linha
-end
-
-function drawText(text, x, y, r, g, b, a, centered, scale)
-    -- Desenha texto na tela
-end
-
-function getScreenResolution()
-    -- Retorna largura e altura da tela
-    return 1920, 1080 -- Exemplo
-end
-
--- Loop principal
-function main()
-    while true do
-        drawESP()
-        wait(0) -- Espera para evitar sobrecarga
+-- Atribuir comando (opcional)
+game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Enum.KeyCode.F1 then
+        ToggleESP()
     end
-end
+end)
 
--- Iniciar o script
-main()
+print("ESP carregado. Pressione F1 para ativar/desativar.")
