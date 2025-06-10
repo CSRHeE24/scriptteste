@@ -1,136 +1,187 @@
--- Mod Menu para Brookhaven RP
--- Ativação: Pressione M para abrir/fechar o menu
-
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
-local UIS = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
-
 -- Configurações
 local Settings = {
-    MenuKey = Enum.KeyCode.M,
-    MenuOpen = false,
-    Options = {
-        SpeedHack = {Enabled = false, Speed = 200},
-        JumpPower = {Enabled = false, Power = 100},
-        NoClip = {Enabled = false},
-        Fly = {Enabled = false, Speed = 50},
-        GodMode = {Enabled = false},
-        InfiniteMoney = {Enabled = false},
-        CarHack = {Enabled = false, Speed = 100}
-    }
+    AutoFarm = false,
+    AutoBuso = false,
+    AutoKen = false,
+    AutoAttack = false,
+    MaxDamage = false,
+    SpeedHack = false,
+    FlyHack = false,
+    NoClip = false,
+    GodMode = false,
+    InfiniteEnergy = false,
+    TpToIslands = false,
+    AutoDefense = false,
+    FarmFruits = false,
+    WalkSpeed = 50,
+    JumpPower = 100,
+    FlySpeed = 100
 }
 
--- Criação da interface
+-- Serviços
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+
+-- Funções Principais
+local function AutoFarm()
+    while Settings.AutoFarm and task.wait() do
+        -- Lógica para farm automático
+        pcall(function()
+            local Enemies = Workspace:FindFirstChild("Enemies")
+            if Enemies then
+                for _, Enemy in pairs(Enemies:GetChildren()) do
+                    if Enemy:FindFirstChild("HumanoidRootPart") then
+                        LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame = Enemy.HumanoidRootPart.CFrame * CFrame.new(0, 0, -5)
+                        if Settings.AutoAttack then
+                            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.X, false, game)
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end
+
+local function AutoBusoHaki()
+    while Settings.AutoBuso and task.wait(1) do
+        game:GetService("ReplicatedStorage").Remotes.To_Server.Handle_Initiate_S:InvokeServer({nil, nil, "Armament"})
+    end
+end
+
+local function AutoKenHaki()
+    while Settings.AutoKen and task.wait(1) do
+        game:GetService("ReplicatedStorage").Remotes.To_Server.Handle_Initiate_S:InvokeServer({nil, nil, "Observation"})
+    end
+end
+
+local function Fly()
+    local BodyGyro = Instance.new("BodyGyro")
+    local BodyVelocity = Instance.new("BodyVelocity")
+    
+    BodyGyro.Parent = LocalPlayer.Character.HumanoidRootPart
+    BodyVelocity.Parent = LocalPlayer.Character.HumanoidRootPart
+    
+    while Settings.FlyHack and task.wait() do
+        BodyGyro.CFrame = Camera.CFrame
+        BodyVelocity.Velocity = Camera.CFrame.LookVector * Settings.FlySpeed
+    end
+    
+    BodyGyro:Destroy()
+    BodyVelocity:Destroy()
+end
+
+local function NoClip()
+    while Settings.NoClip and task.wait() do
+        pcall(function()
+            for _, Part in pairs(LocalPlayer.Character:GetDescendants()) do
+                if Part:IsA("BasePart") then
+                    Part.CanCollide = false
+                end
+            end
+        end)
+    end
+end
+
+local function TeleportToIsland(IslandName)
+    local Islands = {
+        ["Shells Town"] = CFrame.new(1000, 50, 1000),
+        ["Orange Town"] = CFrame.new(2000, 50, 2000),
+        ["Marine Base"] = CFrame.new(3000, 50, 3000)
+        -- Adicione mais ilhas conforme necessário
+    }
+    
+    if Islands[IslandName] then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = Islands[IslandName]
+    end
+end
+
+-- Interface do Menu
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "BrookhavenModMenu"
-ScreenGui.Parent = CoreGui
+ScreenGui.Name = "KingLegacyHack"
+ScreenGui.Parent = game.CoreGui
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0.25, 0, 0.5, 0)
-Frame.Position = UDim2.new(0.05, 0, 0.25, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Frame.Size = UDim2.new(0.25, 0, 0.6, 0)
+Frame.Position = UDim2.new(0.05, 0, 0.2, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Frame.BorderSizePixel = 0
-Frame.Visible = false
+Frame.Visible = true
 Frame.Parent = ScreenGui
 
 local Title = Instance.new("TextLabel")
-Title.Text = "BROOKHAVEN MOD MENU"
+Title.Text = "KING LEGACY HACK"
 Title.Size = UDim2.new(1, 0, 0.1, 0)
-Title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.Parent = Frame
 
--- Funções de hack
-local function ApplySpeedHack()
-    if Settings.Options.SpeedHack.Enabled and LocalPlayer.Character then
-        local Humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if Humanoid then
-            Humanoid.WalkSpeed = Settings.Options.SpeedHack.Speed
-        end
-    end
-end
-
-local function ApplyJumpPower()
-    if Settings.Options.JumpPower.Enabled and LocalPlayer.Character then
-        local Humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if Humanoid then
-            Humanoid.JumpPower = Settings.Options.JumpPower.Power
-        end
-    end
-end
-
-local function ApplyNoClip()
-    if Settings.Options.NoClip.Enabled and LocalPlayer.Character then
-        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-    end
-end
-
-local function ApplyFly()
-    if Settings.Options.Fly.Enabled then
-        -- Implementação do voo aqui
-    end
-end
-
--- Criação dos botões
-local options = {
+-- Botões do Menu
+local Options = {
+    {Name = "Auto Farm", Option = "AutoFarm"},
+    {Name = "Auto Buso Haki", Option = "AutoBuso"},
+    {Name = "Auto Ken Haki", Option = "AutoKen"},
+    {Name = "Auto Attack", Option = "AutoAttack"},
+    {Name = "Max Damage", Option = "MaxDamage"},
     {Name = "Speed Hack", Option = "SpeedHack"},
-    {Name = "Super Jump", Option = "JumpPower"},
+    {Name = "Fly Hack", Option = "FlyHack"},
     {Name = "NoClip", Option = "NoClip"},
-    {Name = "Fly", Option = "Fly"},
     {Name = "God Mode", Option = "GodMode"},
-    {Name = "Infinite Money", Option = "InfiniteMoney"},
-    {Name = "Car Hack", Option = "CarHack"}
+    {Name = "Infinite Energy", Option = "InfiniteEnergy"},
+    {Name = "Auto Defense", Option = "AutoDefense"},
+    {Name = "Farm Fruits", Option = "FarmFruits"}
 }
 
-local buttonHeight = 0.08
-local padding = 0.01
-
-for i, option in ipairs(options) do
-    local button = Instance.new("TextButton")
-    button.Name = option.Option
-    button.Text = option.Name
-    button.Size = UDim2.new(0.9, 0, buttonHeight, 0)
-    button.Position = UDim2.new(0.05, 0, 0.1 + (buttonHeight + padding) * (i-1), 0)
-    button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    button.TextColor3 = Color3.fromRGB(255, 255, 255)
-    button.Font = Enum.Font.Gotham
-    button.Parent = Frame
+local function ToggleOption(Option)
+    Settings[Option] = not Settings[Option]
     
-    button.MouseButton1Click:Connect(function()
-        Settings.Options[option.Option].Enabled = not Settings.Options[option.Option].Enabled
-        button.BackgroundColor3 = Settings.Options[option.Option].Enabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(60, 60, 60)
+    if Option == "AutoFarm" then
+        coroutine.wrap(AutoFarm)()
+    elseif Option == "AutoBuso" then
+        coroutine.wrap(AutoBusoHaki)()
+    elseif Option == "AutoKen" then
+        coroutine.wrap(AutoKenHaki)()
+    elseif Option == "FlyHack" then
+        coroutine.wrap(Fly)()
+    elseif Option == "NoClip" then
+        coroutine.wrap(NoClip)()
+    end
+end
+
+for i, Option in pairs(Options) do
+    local Button = Instance.new("TextButton")
+    Button.Text = Option.Name
+    Button.Size = UDim2.new(0.9, 0, 0.07, 0)
+    Button.Position = UDim2.new(0.05, 0, 0.1 + (0.08 * i), 0)
+    Button.BackgroundColor3 = Settings[Option.Option] and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(60, 60, 60)
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.Font = Enum.Font.Gotham
+    Button.Parent = Frame
+    
+    Button.MouseButton1Click:Connect(function()
+        ToggleOption(Option.Option)
+        Button.BackgroundColor3 = Settings[Option.Option] and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(60, 60, 60)
     end)
 end
 
--- Controles
-UIS.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Settings.MenuKey and not gameProcessed then
-        Settings.MenuOpen = not Settings.MenuOpen
-        Frame.Visible = Settings.MenuOpen
-    end
-end)
-
--- Loop principal
-game:GetService("RunService").RenderStepped:Connect(function()
-    ApplySpeedHack()
-    ApplyJumpPower()
-    ApplyNoClip()
-    ApplyFly()
-    
-    -- Atualiza as cores dos botões
-    for _, option in ipairs(options) do
-        local button = Frame:FindFirstChild(option.Option)
-        if button then
-            button.BackgroundColor3 = Settings.Options[option.Option].Enabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(60, 60, 60)
+-- Atualização de Stats
+RunService.RenderStepped:Connect(function()
+    if LocalPlayer.Character then
+        local Humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if Humanoid then
+            if Settings.SpeedHack then
+                Humanoid.WalkSpeed = Settings.WalkSpeed
+            end
+            if Settings.JumpPower then
+                Humanoid.JumpPower = Settings.JumpPower
+            end
         end
     end
 end)
 
-print("Mod Menu para Brookhaven carregado! Pressione M para abrir o menu.")
+print("✅ King Legacy Hack Carregado! ✅")
