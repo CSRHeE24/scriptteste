@@ -1,187 +1,175 @@
--- Configurações
-local Settings = {
-    AutoFarm = false,
-    AutoBuso = false,
-    AutoKen = false,
-    AutoAttack = false,
-    MaxDamage = false,
-    SpeedHack = false,
-    FlyHack = false,
-    NoClip = false,
-    GodMode = false,
-    InfiniteEnergy = false,
-    TpToIslands = false,
-    AutoDefense = false,
-    FarmFruits = false,
-    WalkSpeed = 50,
-    JumpPower = 100,
-    FlySpeed = 100
+-- Configurações do ESP
+local settings = {
+    enabled = true,
+    teamCheck = true,       -- Mostrar apenas inimigos
+    boxEsp = true,          -- Mostrar caixas ao redor dos jogadores
+    tracerEsp = true,       -- Mostrar linhas traçadoras
+    healthBar = true,       -- Mostrar barra de vida
+    distance = true,        -- Mostrar distância
+    maxDistance = 1000,     -- Distância máxima para renderizar
+    boxColor = {255, 0, 0}, -- Cor da caixa (RGB)
+    tracerColor = {255, 255, 255} -- Cor do tracer (RGB)
 }
 
--- Serviços
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
-local Mouse = LocalPlayer:GetMouse()
-
--- Funções Principais
-local function AutoFarm()
-    while Settings.AutoFarm and task.wait() do
-        -- Lógica para farm automático
-        pcall(function()
-            local Enemies = Workspace:FindFirstChild("Enemies")
-            if Enemies then
-                for _, Enemy in pairs(Enemies:GetChildren()) do
-                    if Enemy:FindFirstChild("HumanoidRootPart") then
-                        LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame = Enemy.HumanoidRootPart.CFrame * CFrame.new(0, 0, -5)
-                        if Settings.AutoAttack then
-                            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.X, false, game)
+-- Função principal de desenho
+function drawESP()
+    if not settings.enabled then return end
+    
+    -- Obter jogador local
+    local localPlayer = getLocalPlayer()
+    if not localPlayer then return end
+    
+    -- Obter posição do jogador local
+    local localX, localY, localZ = getPlayerPosition(localPlayer)
+    
+    -- Obter todos os jogadores
+    local players = getPlayers()
+    
+    for _, player in ipairs(players) do
+        -- Verificar se não é o jogador local
+        if player ~= localPlayer then
+            -- Verificar se é inimigo (se teamCheck estiver ativado)
+            if not settings.teamCheck or not isTeammate(localPlayer, player) then
+                -- Obter posição do jogador
+                local x, y, z = getPlayerPosition(player)
+                
+                -- Verificar distância
+                local dist = getDistance(localX, localY, localZ, x, y, z)
+                if dist <= settings.maxDistance then
+                    -- Converter coordenadas 3D para 2D na tela
+                    local screenX, screenY = worldToScreen(x, y, z)
+                    
+                    if screenX and screenY then
+                        -- Obter informações do jogador
+                        local health = getPlayerHealth(player)
+                        local maxHealth = getPlayerMaxHealth(player)
+                        local name = getPlayerName(player)
+                        
+                        -- Desenhar caixa ESP
+                        if settings.boxEsp then
+                            local boxWidth = 50 * (1 / dist)
+                            local boxHeight = 100 * (1 / dist)
+                            
+                            drawBox(screenX - boxWidth/2, screenY - boxHeight, boxWidth, boxHeight, 
+                                   settings.boxColor[1], settings.boxColor[2], settings.boxColor[3], 255)
+                        end
+                        
+                        -- Desenhar tracer
+                        if settings.tracerEsp then
+                            local screenWidth, screenHeight = getScreenResolution()
+                            drawLine(screenWidth/2, screenHeight, screenX, screenY, 
+                                    settings.tracerColor[1], settings.tracerColor[2], settings.tracerColor[3], 255)
+                        end
+                        
+                        -- Desenhar barra de vida
+                        if settings.healthBar then
+                            local healthPercentage = health / maxHealth
+                            local barWidth = 40 * (1 / dist)
+                            local barHeight = 3 * (1 / dist)
+                            local barX = screenX - barWidth/2
+                            local barY = screenY - 105 * (1 / dist)
+                            
+                            -- Fundo da barra
+                            drawFilledRectangle(barX, barY, barWidth, barHeight, 255, 0, 0, 150)
+                            
+                            -- Vida atual
+                            local healthWidth = barWidth * healthPercentage
+                            local healthColor = interpolateColor({255, 0, 0}, {0, 255, 0}, healthPercentage)
+                            drawFilledRectangle(barX, barY, healthWidth, barHeight, healthColor[1], healthColor[2], healthColor[3], 200)
+                        end
+                        
+                        -- Desenhar distância
+                        if settings.distance then
+                            local textY = screenY - 120 * (1 / dist)
+                            drawText(string.format("%.1fm", dist), screenX, textY, 255, 255, 255, 255, true, 0.5 * (1 / dist))
                         end
                     end
                 end
             end
-        end)
-    end
-end
-
-local function AutoBusoHaki()
-    while Settings.AutoBuso and task.wait(1) do
-        game:GetService("ReplicatedStorage").Remotes.To_Server.Handle_Initiate_S:InvokeServer({nil, nil, "Armament"})
-    end
-end
-
-local function AutoKenHaki()
-    while Settings.AutoKen and task.wait(1) do
-        game:GetService("ReplicatedStorage").Remotes.To_Server.Handle_Initiate_S:InvokeServer({nil, nil, "Observation"})
-    end
-end
-
-local function Fly()
-    local BodyGyro = Instance.new("BodyGyro")
-    local BodyVelocity = Instance.new("BodyVelocity")
-    
-    BodyGyro.Parent = LocalPlayer.Character.HumanoidRootPart
-    BodyVelocity.Parent = LocalPlayer.Character.HumanoidRootPart
-    
-    while Settings.FlyHack and task.wait() do
-        BodyGyro.CFrame = Camera.CFrame
-        BodyVelocity.Velocity = Camera.CFrame.LookVector * Settings.FlySpeed
-    end
-    
-    BodyGyro:Destroy()
-    BodyVelocity:Destroy()
-end
-
-local function NoClip()
-    while Settings.NoClip and task.wait() do
-        pcall(function()
-            for _, Part in pairs(LocalPlayer.Character:GetDescendants()) do
-                if Part:IsA("BasePart") then
-                    Part.CanCollide = false
-                end
-            end
-        end)
-    end
-end
-
-local function TeleportToIsland(IslandName)
-    local Islands = {
-        ["Shells Town"] = CFrame.new(1000, 50, 1000),
-        ["Orange Town"] = CFrame.new(2000, 50, 2000),
-        ["Marine Base"] = CFrame.new(3000, 50, 3000)
-        -- Adicione mais ilhas conforme necessário
-    }
-    
-    if Islands[IslandName] then
-        LocalPlayer.Character.HumanoidRootPart.CFrame = Islands[IslandName]
-    end
-end
-
--- Interface do Menu
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "KingLegacyHack"
-ScreenGui.Parent = game.CoreGui
-
-local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0.25, 0, 0.6, 0)
-Frame.Position = UDim2.new(0.05, 0, 0.2, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Frame.BorderSizePixel = 0
-Frame.Visible = true
-Frame.Parent = ScreenGui
-
-local Title = Instance.new("TextLabel")
-Title.Text = "KING LEGACY HACK"
-Title.Size = UDim2.new(1, 0, 0.1, 0)
-Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Font = Enum.Font.GothamBold
-Title.Parent = Frame
-
--- Botões do Menu
-local Options = {
-    {Name = "Auto Farm", Option = "AutoFarm"},
-    {Name = "Auto Buso Haki", Option = "AutoBuso"},
-    {Name = "Auto Ken Haki", Option = "AutoKen"},
-    {Name = "Auto Attack", Option = "AutoAttack"},
-    {Name = "Max Damage", Option = "MaxDamage"},
-    {Name = "Speed Hack", Option = "SpeedHack"},
-    {Name = "Fly Hack", Option = "FlyHack"},
-    {Name = "NoClip", Option = "NoClip"},
-    {Name = "God Mode", Option = "GodMode"},
-    {Name = "Infinite Energy", Option = "InfiniteEnergy"},
-    {Name = "Auto Defense", Option = "AutoDefense"},
-    {Name = "Farm Fruits", Option = "FarmFruits"}
-}
-
-local function ToggleOption(Option)
-    Settings[Option] = not Settings[Option]
-    
-    if Option == "AutoFarm" then
-        coroutine.wrap(AutoFarm)()
-    elseif Option == "AutoBuso" then
-        coroutine.wrap(AutoBusoHaki)()
-    elseif Option == "AutoKen" then
-        coroutine.wrap(AutoKenHaki)()
-    elseif Option == "FlyHack" then
-        coroutine.wrap(Fly)()
-    elseif Option == "NoClip" then
-        coroutine.wrap(NoClip)()
-    end
-end
-
-for i, Option in pairs(Options) do
-    local Button = Instance.new("TextButton")
-    Button.Text = Option.Name
-    Button.Size = UDim2.new(0.9, 0, 0.07, 0)
-    Button.Position = UDim2.new(0.05, 0, 0.1 + (0.08 * i), 0)
-    Button.BackgroundColor3 = Settings[Option.Option] and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(60, 60, 60)
-    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Button.Font = Enum.Font.Gotham
-    Button.Parent = Frame
-    
-    Button.MouseButton1Click:Connect(function()
-        ToggleOption(Option.Option)
-        Button.BackgroundColor3 = Settings[Option.Option] and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(60, 60, 60)
-    end)
-end
-
--- Atualização de Stats
-RunService.RenderStepped:Connect(function()
-    if LocalPlayer.Character then
-        local Humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if Humanoid then
-            if Settings.SpeedHack then
-                Humanoid.WalkSpeed = Settings.WalkSpeed
-            end
-            if Settings.JumpPower then
-                Humanoid.JumpPower = Settings.JumpPower
-            end
         end
     end
-end)
+end
 
-print("✅ King Legacy Hack Carregado! ✅")
+-- Funções auxiliares (precisa ser implementadas de acordo com o jogo/engine)
+function getLocalPlayer()
+    -- Implementação específica do jogo
+    -- Retorna a referência do jogador local
+end
+
+function getPlayers()
+    -- Retorna uma tabela com todos os jogadores
+end
+
+function getPlayerPosition(player)
+    -- Retorna x, y, z do jogador
+end
+
+function isTeammate(player1, player2)
+    -- Retorna true se os jogadores são do mesmo time
+end
+
+function getPlayerHealth(player)
+    -- Retorna a vida atual do jogador
+end
+
+function getPlayerMaxHealth(player)
+    -- Retorna a vida máxima do jogador
+end
+
+function getPlayerName(player)
+    -- Retorna o nome do jogador
+end
+
+function getDistance(x1, y1, z1, x2, y2, z2)
+    -- Calcula distância entre dois pontos 3D
+    local dx = x2 - x1
+    local dy = y2 - y1
+    local dz = z2 - z1
+    return math.sqrt(dx*dx + dy*dy + dz*dz)
+end
+
+function worldToScreen(x, y, z)
+    -- Converte coordenadas 3D do mundo para 2D na tela
+    -- Retorna screenX, screenY ou nil se não estiver visível
+end
+
+function interpolateColor(color1, color2, factor)
+    -- Interpola entre duas cores RGB
+    local r = color1[1] + (color2[1] - color1[1]) * factor
+    local g = color1[2] + (color2[2] - color1[2]) * factor
+    local b = color1[3] + (color2[3] - color1[3]) * factor
+    return {r, g, b}
+end
+
+-- Funções de desenho (dependem da API gráfica disponível)
+function drawBox(x, y, width, height, r, g, b, a)
+    -- Desenha um retângulo vazio
+end
+
+function drawFilledRectangle(x, y, width, height, r, g, b, a)
+    -- Desenha um retângulo preenchido
+end
+
+function drawLine(x1, y1, x2, y2, r, g, b, a)
+    -- Desenha uma linha
+end
+
+function drawText(text, x, y, r, g, b, a, centered, scale)
+    -- Desenha texto na tela
+end
+
+function getScreenResolution()
+    -- Retorna largura e altura da tela
+    return 1920, 1080 -- Exemplo
+end
+
+-- Loop principal
+function main()
+    while true do
+        drawESP()
+        wait(0) -- Espera para evitar sobrecarga
+    end
+end
+
+-- Iniciar o script
+main()
